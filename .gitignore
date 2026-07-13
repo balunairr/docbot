@@ -3,3 +3,10 @@ dist/
 .env
 *.log
 .DS_Store
+
+# LanceDB vector store and uploaded document files must never be committed —
+# they're regenerated locally and would bloat the repo with binary data.
+backend/data/lancedb/*
+backend/data/uploads/*
+!backend/data/lancedb/.gitkeep
+!backend/data/uploads/.gitkeep

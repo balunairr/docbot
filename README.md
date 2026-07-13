@@ -96,6 +96,8 @@ docbot/
 
    Edit `frontend/.env` and set `VITE_API_URL` to your backend's URL.
 
+> **Note:** The contents of `backend/data/lancedb/` and `backend/data/uploads/` are gitignored — LanceDB's vector store files and uploaded documents are never committed. Only `.gitkeep` placeholders are tracked, so the empty folders are still present right after cloning. LanceDB creates its table files automatically the first time you upload a document; no manual setup is needed.
+
 ## Environment variables
 
 ### Backend (`backend/.env`)
