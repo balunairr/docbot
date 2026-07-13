@@ -20,6 +20,7 @@ export interface IngestDocumentResult {
   fileName: string;
   fileType: DocumentFileType;
   chunkCount: number;
+  updatedAt: string;
 }
 
 export interface ChunkSearchResult {

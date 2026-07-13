@@ -1,5 +1,6 @@
 import multer from "multer";
 import path from "node:path";
+import type { NextFunction, Request, Response } from "express";
 import { env } from "../config/env.js";
 import type { DocumentFileType } from "../types/index.js";
 
@@ -35,6 +36,27 @@ export const uploadMiddleware = multer({
     callback(null, true);
   },
 });
+
+/**
+ * Wraps Multer's callback-based single-file middleware so that upload
+ * failures (wrong file type, oversized file) are surfaced as a clean
+ * `400 Bad Request` instead of falling through to the generic 500 error
+ * handler, which Multer's callback API would otherwise trigger.
+ */
+export function createUploadHandler(fieldName: string) {
+  const middleware = uploadMiddleware.single(fieldName);
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    middleware(req, res, (error: unknown) => {
+      if (error instanceof multer.MulterError || error instanceof Error) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+
+      next();
+    });
+  };
+}
 
 export function getFileTypeFromMime(mimeType: string): DocumentFileType {
   const fileType = allowedMimeTypes[mimeType];

@@ -43,7 +43,7 @@ export async function ingestDocument(
     }
 
     const vectors = await embedTexts(chunks.map((chunk) => chunk.text));
-    const createdAt = new Date().toISOString();
+    const updatedAt = new Date().toISOString();
 
     const records: DocumentChunkRecord[] = chunks.map((chunk, index) => ({
       id: randomUUID(),
@@ -54,13 +54,17 @@ export async function ingestDocument(
       label: chunk.label,
       chunkIndex: index,
       vector: vectors[index] ?? [],
-      createdAt,
+      createdAt: updatedAt,
     }));
 
     if (records.some((record) => record.vector.length === 0)) {
       throw new IngestionError("Embedding count did not match chunk count");
     }
 
+    // Deleting first (rather than overwriting in place) keeps this function
+    // correct for both first-time ingestion and re-ingestion of an existing
+    // documentId: any stale chunks from a previous version of the document
+    // are removed before the new chunks are inserted.
     await deleteDocumentChunks(documentId);
     await insertChunks(records);
 
@@ -69,6 +73,7 @@ export async function ingestDocument(
       fileName: input.fileName,
       fileType: input.fileType,
       chunkCount: records.length,
+      updatedAt,
     };
   } catch (error) {
     if (error instanceof IngestionError) {
@@ -106,10 +111,12 @@ export async function deleteDocument(documentId: string): Promise<void> {
 export async function ingestUploadedFile(
   filePath: string,
   fileName: string,
-  fileType: DocumentFileType
+  fileType: DocumentFileType,
+  documentId?: string
 ): Promise<IngestDocumentResult> {
   try {
     const result = await ingestDocument({
+      documentId,
       filePath,
       fileName,
       fileType,
@@ -127,6 +134,38 @@ export async function ingestUploadedFile(
 
     throw new IngestionError(
       `Failed to ingest uploaded file: ${fileName}`,
+      error
+    );
+  }
+}
+
+/**
+ * Replaces the content of an existing document: verifies the document
+ * exists, then deletes its old chunks and re-runs the full ingestion
+ * pipeline (extract, chunk, embed, store) against the new file.
+ */
+export async function updateDocument(
+  documentId: string,
+  filePath: string,
+  fileName: string,
+  fileType: DocumentFileType
+): Promise<IngestDocumentResult> {
+  try {
+    const existingChunkCount = await getDocumentChunkCount(documentId);
+
+    if (existingChunkCount === 0) {
+      await unlink(filePath).catch(() => undefined);
+      throw new IngestionError(`Document not found: ${documentId}`);
+    }
+
+    return await ingestUploadedFile(filePath, fileName, fileType, documentId);
+  } catch (error) {
+    if (error instanceof IngestionError) {
+      throw error;
+    }
+
+    throw new IngestionError(
+      `Failed to update document: ${documentId}`,
       error
     );
   }

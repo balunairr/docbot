@@ -1,10 +1,17 @@
 import { Router } from "express";
 import {
+  createUploadHandler,
   getFileTypeFromMime,
-  uploadMiddleware,
 } from "../middleware/upload.js";
-import { deleteDocument, ingestUploadedFile, IngestionError } from "../services/ingestion.js";
+import {
+  deleteDocument,
+  ingestUploadedFile,
+  IngestionError,
+  updateDocument,
+} from "../services/ingestion.js";
 import { listDocuments } from "../services/vectorStore.js";
+
+const handleFileUpload = createUploadHandler("file");
 
 export const documentsRouter = Router();
 
@@ -17,9 +24,34 @@ documentsRouter.get("/", async (_req, res, next) => {
   }
 });
 
-documentsRouter.post(
-  "/",
-  uploadMiddleware.single("file"),
+documentsRouter.post("/", handleFileUpload, async (req, res, next) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: "A file is required" });
+      return;
+    }
+
+    const fileType = getFileTypeFromMime(req.file.mimetype);
+    const result = await ingestUploadedFile(
+      req.file.path,
+      req.file.originalname,
+      fileType
+    );
+
+    res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof IngestionError) {
+      res.status(422).json({ error: error.message });
+      return;
+    }
+
+    next(error);
+  }
+});
+
+documentsRouter.put(
+  "/:documentId",
+  handleFileUpload,
   async (req, res, next) => {
     try {
       if (!req.file) {
@@ -27,17 +59,27 @@ documentsRouter.post(
         return;
       }
 
+      const documentId = String(req.params.documentId);
       const fileType = getFileTypeFromMime(req.file.mimetype);
-      const result = await ingestUploadedFile(
+      const result = await updateDocument(
+        documentId,
         req.file.path,
         req.file.originalname,
         fileType
       );
 
-      res.status(201).json(result);
+      res.status(200).json({
+        id: result.documentId,
+        filename: result.fileName,
+        last_updated_date: result.updatedAt,
+        chunk_count: result.chunkCount,
+      });
     } catch (error) {
       if (error instanceof IngestionError) {
-        res.status(422).json({ error: error.message });
+        const statusCode = error.message.startsWith("Document not found")
+          ? 404
+          : 422;
+        res.status(statusCode).json({ error: error.message });
         return;
       }
 
