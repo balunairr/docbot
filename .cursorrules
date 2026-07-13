@@ -1,0 +1,56 @@
+# Project: DocBot
+# A RAG-based HR document chatbot using Azure OpenAI and LanceDB
+# Version: 1.0
+
+## Tech Stack
+- Frontend: React 18 + TypeScript 5 + Vite 5 + Tailwind CSS 3
+- Backend: Node.js 20 + Express 4 + TypeScript 5
+- Vector Store: LanceDB (embedded, no separate server required)
+- AI: Azure OpenAI (text-embedding-ada-002 for embeddings, GPT-4o for chat)
+- File Handling: Multer (PDF uploads)
+- PDF Parsing: pdf-parse
+- Testing: Vitest + React Testing Library
+
+## Project Structure
+- frontend/ — React app (Vite)
+  - src/components/    — UI components, one folder per feature
+  - src/services/      — All API calls (never fetch directly in components)
+  - src/types/         — Shared TypeScript interfaces
+  - src/hooks/         — Custom React hooks
+- backend/ — Node.js/Express app
+  - src/routes/        — Express route handlers (thin — no business logic)
+  - src/services/      — Business logic (RAG pipeline, embeddings, chat)
+  - src/middleware/    — Error handling, file upload, validation
+  - src/types/         — Shared TypeScript interfaces
+
+## Code Style
+- Use TypeScript strict mode everywhere. Never use 'any' type.
+- Functional React components only. No class components.
+- Named exports only. No default exports.
+- Tailwind CSS only for styling. No inline styles. No CSS modules.
+- All async functions must use try/catch with typed errors.
+- Use const for all declarations unless reassignment is needed.
+- No var. No TODO comments in submitted code.
+
+## Architecture Rules
+- All API calls from frontend must go through src/services/ — never fetch() directly in components.
+- All business logic (RAG pipeline, chunking, embedding, retrieval) lives in backend/src/services/.
+- Routes must be thin: validate input → call service → return response. No logic in routes.
+- All TypeScript interfaces shared between frontend and backend go in their respective src/types/index.ts.
+- LanceDB operations are confined to backend/src/services/vectorStore.ts only.
+- Azure OpenAI calls are confined to backend/src/services/aiService.ts only.
+
+## Constraints
+- Never use localStorage for storing documents or vectors — all persistence is handled by LanceDB on the backend.
+- Never put Azure OpenAI API keys or connection strings in frontend code.
+- Never use moment.js — use date-fns instead.
+- Never use any CSS framework other than Tailwind.
+- Never call Azure OpenAI directly from the frontend — always go through the Express backend.
+- Never store raw PDF content in memory beyond the request lifecycle — process and store vectors, then discard.
+
+## When Making Changes
+- Always explain what you changed and why before showing code.
+- If a change affects the API contract between frontend and backend, explicitly flag it.
+- If a change touches the RAG pipeline (chunking, embedding, retrieval), explain the impact on answer quality.
+- If you are uncertain about the best approach, say so and offer two options with tradeoffs.
+- Show only the changed code sections, not entire files, unless the file is new.
